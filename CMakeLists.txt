@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.21)
 project(ParallelProgramming)
-
 set(CMAKE_CXX_STANDARD 14)
 FIND_PACKAGE( OpenMP REQUIRED)
+
+if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64")
+    message("x86_64 architecture detected")
+    endif()
+include_directories("C:\\Program Files (x86)\\Microsoft SDKs\\MPI\\Include")
+link_directories("C:\\Program Files (x86)\\Microsoft SDKs\\MPI\\Lib\\x64")
+link_libraries(msmpi)
+
 if(OPENMP_FOUND)
     message("OPENMP FOUND")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -23,3 +30,4 @@ add_executable(hash_find serial/hash_find.cpp)
 add_executable(parallel_sequential parallel_each_query/parallel_sequential.cpp)
 add_executable(parallel_sequential_with_serial_search parallel_each_query/parallel_sequential_with_serial_search.cpp)
 add_executable(zip_zap_SIMD SIMD/zip_zap_SIMD.cpp)
+add_executable(mpi_hello MPI/mpi_hello.cpp)

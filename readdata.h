@@ -42,19 +42,27 @@ vector<int> to_int_list(const char *line) {
     }
     return int_list;
 }
-
-int read_posting_list(struct POSTING_LIST* posting_list_container) {
+void device_information() {
 
 #if defined  __aarch64__
     printf("this is aarch64\n");
-#elif defined defined __x86_64__
+#elif defined  __x86_64__
     printf("this is x86_64\n");
 #endif
+}
+int read_posting_list(struct POSTING_LIST* posting_list_container) {
 
+
+    device_information();
     time_read_posting_list.start();
     unsigned int array_len;
     unsigned int *temp_arr;
+#if defined  __aarch64__
     fi = fopen("/Users/tianjiaye/CLionProjects/ParallelProgramming/ExpIndex", "rb");
+#elif defined  __x86_64__
+    fi = fopen(R"(C:\Users\LENOVO\CLionProjects\ParallelProgramming\ExpIndex)", "rb");
+#endif
+
     if (nullptr == fi) {
         printf("Can not open file ExpIndex!\n");
         return 1;
@@ -89,7 +97,13 @@ int read_posting_list(struct POSTING_LIST* posting_list_container) {
 
 int read_query_list(vector<vector<int> > &query_list_container) {
     time_read_query_list.start();
+#if defined  __aarch64__
     fq = fopen("/Users/tianjiaye/CLionProjects/ParallelProgramming/ExpQuery", "r");
+#elif defined  __x86_64__
+    fq = fopen(R"(C:\Users\LENOVO\CLionProjects\ParallelProgramming\ExpQuery)", "r");
+#endif
+
+
     if (nullptr == fq) {
         printf("Can not open file ExpQuery!\n");
         return 1;

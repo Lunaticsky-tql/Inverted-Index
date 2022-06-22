@@ -71,14 +71,14 @@ void SvS_zip_zap(POSTING_LIST *queried_posting_list, int query_word_num, vector<
      unsigned int p0=0,pi=0;
         while(p0<rounded_len0&&pi<rounded_leni) {
            //load segments of four 32-bit elements using NEON
-            uint32x4_t v0 = vld1q_u32(result_array+p0);
-            uint32x4_t vi = vld1q_u32(temp_array+pi);
-            //get the last element of each segment
-            uint32_t v0_last = vgetq_lane_u32(v0,3);
-            uint32_t vi_last = vgetq_lane_u32(vi,3);
-            //move pointers
-            p0+=v0_last<=vi_last?4:0;
-            pi+=vi_last<=v0_last?4:0;
+//            uint32x4_t v0 = vld1q_u32(result_array+p0);
+//            uint32x4_t vi = vld1q_u32(temp_array+pi);
+//            //get the last element of each segment
+//            uint32_t v0_last = vgetq_lane_u32(v0,3);
+//            uint32_t vi_last = vgetq_lane_u32(vi,3);
+//            //move pointers
+//            p0+=v0_last<=vi_last?4:0;
+//            pi+=vi_last<=v0_last?4:0;
             //cycle shift the elements of each segment
 //            _mm_shuffle_epi32(v0,_MM_SHUFFLE(3,3,3,3));
         }
