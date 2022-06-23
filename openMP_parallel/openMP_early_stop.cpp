@@ -5,7 +5,6 @@ using namespace std;
 POSTING_LIST *posting_list_container = (struct POSTING_LIST *) malloc(POSTING_LIST_NUM * sizeof(struct POSTING_LIST));
 vector<vector<int>> query_list_container;
 MyTimer time_get_intersection;
-static int search_time = 0;
 int QueryNum = 500;
 
 void get_sorted_index(POSTING_LIST *queried_posting_list, int query_word_num, int *sorted_index) {
@@ -25,8 +24,6 @@ void get_sorted_index(POSTING_LIST *queried_posting_list, int query_word_num, in
 }
 
 int binary_search_with_position(POSTING_LIST *list, unsigned int element, int index) {
-    search_time++;
-    //如果找到返回该元素位置，否则返回不小于它的第一个元素的位置
     int low = index, high = list->len - 1, mid;
     while (low <= high) {
         mid = (low + high) / 2;
@@ -41,7 +38,6 @@ int binary_search_with_position(POSTING_LIST *list, unsigned int element, int in
 }
 
 void simplified_Adp(POSTING_LIST *queried_posting_list, int query_word_num, vector<unsigned int> &result_list) {
-
     //start with sorting the posting list to find the shortest one
     int *sorted_index = new int[query_word_num];
     get_sorted_index(queried_posting_list, query_word_num, sorted_index);
@@ -104,9 +100,16 @@ int main() {
         printf("query_num: %d\n", QueryNum);
         vector<vector<unsigned int>> simplified_Adp_result;
         query_starter(simplified_Adp_result);
-
+        //test the correctness of the result
+        for (int j = 0; j < 5; ++j) {
+            printf("query %d:", j);
+            printf("%zu\n", simplified_Adp_result[j].size());
+            for (unsigned int k: simplified_Adp_result[j]) {
+                printf("%d ", k);
+            }
+            printf("\n");
+        }
         time_get_intersection.get_duration("simplified_Adp plain");
-
         free(posting_list_container);
         return 0;
     }

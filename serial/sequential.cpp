@@ -10,7 +10,6 @@ vector<vector<int> > query_list_container;
 MyTimer time_get_intersection;
 
 int QueryNum = 500;
-static int search_time = 0;
 
 void get_sorted_index(POSTING_LIST *queried_posting_list, int query_word_num, int *sorted_index) {
 
@@ -29,7 +28,6 @@ void get_sorted_index(POSTING_LIST *queried_posting_list, int query_word_num, in
 }
 
 int binary_search_with_position(POSTING_LIST *list, unsigned int element, int index) {
-    search_time++;
     int low = index, high = list->len - 1, mid;
     while (low <= high) {
         mid = (low + high) / 2;
@@ -138,7 +136,7 @@ int main() {
             }
             printf("\n");
         }
-        printf("searching_time:%d\n", search_time);
+
         time_get_intersection.get_duration("sequential plain");
         free(posting_list_container);
         return 0;

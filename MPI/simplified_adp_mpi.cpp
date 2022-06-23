@@ -1,11 +1,13 @@
 #include <iostream>
 #include "../readdata.h"
+#include <mpi.h>
 
 using namespace std;
 POSTING_LIST *posting_list_container = (struct POSTING_LIST *) malloc(POSTING_LIST_NUM * sizeof(struct POSTING_LIST));
 vector<vector<int>> query_list_container;
 MyTimer time_get_intersection;
-static int search_time = 0;
+int MY_RANK, SIZE;
+
 int QueryNum = 500;
 
 void get_sorted_index(POSTING_LIST *queried_posting_list, int query_word_num, int *sorted_index) {
@@ -38,37 +40,35 @@ int binary_search_with_position(POSTING_LIST *list, unsigned int element, int in
     return low;
 }
 
-int serial_search_with_location(POSTING_LIST *list, unsigned int element, int index) {
-    while(index < list->len) {
-        if (list->arr[index] >= element)
-            return index;
-        else
-            index++;
-    }
-    return index;
-}
-
 void simplified_Adp(POSTING_LIST *queried_posting_list, int query_word_num, vector<unsigned int> &result_list) {
 
     //start with sorting the posting list to find the shortest one
     int *sorted_index = new int[query_word_num];
     get_sorted_index(queried_posting_list, query_word_num, sorted_index);
+    vector<unsigned int> temp_result_list;
+    int l0_len = queried_posting_list[sorted_index[0]].len;
+    int divider = l0_len / SIZE;
+    int start_pos, end_pos;
+    if (MY_RANK == SIZE - 1) {
+        start_pos = MY_RANK * divider;
+        end_pos = l0_len;
+    } else {
+        start_pos = MY_RANK * divider;
+        end_pos = (MY_RANK + 1) * divider;
+    }
     bool flag;
-    unsigned int key_element;
+    unsigned int key_element= queried_posting_list[sorted_index[0]].arr[start_pos];
     vector<int> finding_pointer(query_word_num, 0);
-    for (int k = 0; k < queried_posting_list[sorted_index[0]].len; k++) {
-        flag = true;
+    for (int k = start_pos; k < end_pos; k++) {
+        flag= true;
         key_element = queried_posting_list[sorted_index[0]].arr[k];
-        for (int m = 1; m < query_word_num; m++) {
+        for(int m=1; m<query_word_num; m++) {
             int mth_short = sorted_index[m];
             POSTING_LIST searching_list = queried_posting_list[mth_short];
-            //if the key element is larger than the end element of a list ,it means any element larger than the key element can not be the intersection
             if (key_element > searching_list.arr[searching_list.len - 1]) {
                 goto end;
             }
-//            int location = binary_search_with_position(&queried_posting_list[mth_short], key_element,
-//                                                       finding_pointer[mth_short]);
-            int location = serial_search_with_location(&queried_posting_list[mth_short], key_element,
+            int location = binary_search_with_position(&queried_posting_list[mth_short], key_element,
                                                        finding_pointer[mth_short]);
             if (searching_list.arr[location] != key_element) {
                 flag = false;
@@ -76,38 +76,56 @@ void simplified_Adp(POSTING_LIST *queried_posting_list, int query_word_num, vect
             }
             finding_pointer[mth_short] = location;
         }
-        if (flag) {
-            result_list.push_back(key_element);
+        if(flag) {
+            temp_result_list.push_back(key_element);
         }
     }
     end: delete[] sorted_index;
+    if(MY_RANK == 0) {
+        //put the temp_result_list to the result_list
+        result_list.assign(temp_result_list.begin(), temp_result_list.end());
+        for(int i=1; i<SIZE; i++) {
+            int size = 0;
+            MPI_Recv(&size, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            temp_result_list.clear();
+            temp_result_list.resize(size);
+            MPI_Recv(&temp_result_list[0], size, MPI_UNSIGNED, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            result_list.insert(result_list.end(), temp_result_list.begin(), temp_result_list.end());
+        }
+    }
+    else {
+        //send size of temp_result_list to the root
+        int temp_result_list_size = temp_result_list.size();
+        MPI_Send(&temp_result_list_size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        //only send array rather than whole struct
+        MPI_Send(&temp_result_list[0], temp_result_list.size(), MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD);
+    }
 }
 
 void query_starter(vector<vector<unsigned int>> &simplified_Adp_result) {
 
+    MPI_Comm_rank(MPI_COMM_WORLD, &MY_RANK);
+    MPI_Comm_size(MPI_COMM_WORLD, &SIZE);
+    //print the RANK
+    printf("RANK: %d\n", MY_RANK);
     time_get_intersection.start();
-    int query_word_num;
-    POSTING_LIST *queried_posting_list;
-    int query_list_item;
-    vector<unsigned int> simplified_Adp_result_list;
-#pragma omp parallel for num_threads(16) private(query_word_num,queried_posting_list,query_list_item,simplified_Adp_result_list) shared(query_list_container,simplified_Adp_result,QueryNum,posting_list_container) default(none)
     for (int i = 0; i < QueryNum; i++) {
-        query_word_num = query_list_container[i].size();
+        int query_word_num = query_list_container[i].size();
         //get the posting list of ith query
-        queried_posting_list = new POSTING_LIST[query_word_num];
+        auto *queried_posting_list = new POSTING_LIST[query_word_num];
         for (int j = 0; j < query_word_num; j++) {
-            query_list_item = query_list_container[i][j];
+            int query_list_item = query_list_container[i][j];
             queried_posting_list[j] = posting_list_container[query_list_item];
         }
+        //get the result of ith query
+        vector<unsigned int> simplified_Adp_result_list;
         simplified_Adp(queried_posting_list, query_word_num, simplified_Adp_result_list);
-#pragma omp critical
-        {
-            simplified_Adp_result[i]=simplified_Adp_result_list;
-        }
+        simplified_Adp_result.push_back(simplified_Adp_result_list);
         simplified_Adp_result_list.clear();
         delete[] queried_posting_list;
     }
     time_get_intersection.finish();
+
 }
 
 int main() {
@@ -118,18 +136,22 @@ int main() {
         return -1;
     } else {
         printf("query_num: %d\n", QueryNum);
-        vector<vector<unsigned int>> simplified_Adp_result(QueryNum, vector<unsigned int>());
+        MPI_Init(NULL, NULL);
+        vector<vector<unsigned int>> simplified_Adp_result;
         query_starter(simplified_Adp_result);
-        for (int i = 0; i < 5; i++) {
-            printf("query %d: %zu\n", i,simplified_Adp_result[i].size());
-            for (unsigned int j : simplified_Adp_result[i]) {
-                printf("%d ", j);
+        if(MY_RANK == 0) {
+            for (int j = 0; j < 5; ++j) {
+                printf("result %d: ", j);
+                printf("%zu\n", simplified_Adp_result[j].size());
+                for (int k = 0; k < simplified_Adp_result[j].size(); ++k) {
+                    printf("%d ", simplified_Adp_result[j][k]);
+                }
+                printf("\n");
             }
-            printf("\n");
+            time_get_intersection.get_duration("simplified_Adp plain");
         }
-        time_get_intersection.get_duration("simplified_Adp openMP_block_task");
-
         free(posting_list_container);
+        MPI_Finalize();
         return 0;
     }
 }
