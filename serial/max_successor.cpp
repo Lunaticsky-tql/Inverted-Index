@@ -2,6 +2,8 @@
 // Created by 田佳业 on 2022/4/30.
 //
 #include <iostream>
+#include <immintrin.h>
+
 #if defined __aarch64__
 #include <arm_neon.h>
 #endif
@@ -55,25 +57,32 @@ int serial_search_with_location(POSTING_LIST *list, unsigned int element, int in
 }
 
 int serial_search_with_location_using_SIMD(POSTING_LIST *list, unsigned int element, int index) {
-    //using NEON SIMD instructions, so we can compare 4 elements at a time
-    int len_list=list->len-index;
-    int remainder=len_list%4;
-    for (int i = index; i < list->len-remainder; i += 4) {
-        //duplicate the element to compare with using NEON SIMD instructions
-        uint32x4_t element_vec = vdupq_n_u32(element);
-        uint32x4_t list_vec = vld1q_u32(list->arr + i);
-        //compare the element with the list using NEON SIMD instructions
-        uint32x4_t result_vec = vcgeq_u32(list_vec, element_vec);
-        unsigned int* result_ptr = (unsigned int*) &result_vec;
-        //if the element is not found, return the index of the first element that is not less than the element
-        if(result_ptr[0]|result_ptr[1]|result_ptr[2]|result_ptr[3])
-            for(int j = 0; j < 4; j++) {
-                if(result_ptr[j] != 0)
-                    return i + j;
-            }
+    const __m128i keys = _mm_set1_epi32(element);
+
+    const auto len_list = list->len;
+    const auto remainder = len_list % 4;
+
+    for (size_t i=index; i < len_list-remainder; i += 8) {
+
+        const __m128i vec1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&list->arr[i]));
+        const __m128i vec2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&list->arr[i + 4]));
+        const __m128i cmp1 = _mm_cmpgt_epi32(vec1, keys);
+        const __m128i cmp2 = _mm_cmpgt_epi32(vec2, keys);
+        const __m128i tmp  = _mm_packs_epi32(cmp1, cmp2);
+        const uint32_t mask = _mm_movemask_epi8(tmp);
+
+        if (mask != 0) {
+            int pos = i + __builtin_ctz(mask)/2;
+            if(pos==index)
+                return index;
+            else if(list->arr[pos-1]==element)
+                return pos-1;
+            else
+                return pos;
+        }
     }
-    //look for the rest of the elements
-    for (int i = list->len-remainder; i <list->len; i++) {
+
+    for (size_t i=len_list-remainder; i < len_list; i++) {
         if (list->arr[i] >= element)
             return i;
     }

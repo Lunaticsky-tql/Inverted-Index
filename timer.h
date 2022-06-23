@@ -29,10 +29,11 @@ public:
         gettimeofday(&end, NULL);
     }
 
-    void get_duration(const string& str) {
+    double get_duration(const string& str) {
         timeMS = (end.tv_sec - start_.tv_sec) * 1000.0;
         timeMS += (end.tv_usec - start_.tv_usec) / 1000.0;
         printf("%s: %.3f ms\n", str.c_str(), timeMS);
+        return timeMS;
     }
 
     };
