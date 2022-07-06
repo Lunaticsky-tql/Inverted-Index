@@ -128,7 +128,7 @@ int main() {
         vector<vector<unsigned int>> Seq_result;
         query_starter(Seq_result);
         //test the correctness of the result
-        for (int j = 0; j < 5; ++j) {
+        for (int j = 5; j < 10; ++j) {
             printf("result %d: ", j);
             printf("%zu\n", Seq_result[j].size());
             for (int k = 0; k < Seq_result[j].size(); ++k) {
